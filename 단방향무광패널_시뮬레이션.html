@@ -1,0 +1,884 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>단방향 무광 패널 시뮬레이션 — 자동차 디스플레이 광효율</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: 'Noto Sans KR', sans-serif;
+  background: #f0f2f5;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 24px 16px;
+  color: #1a1a2e;
+}
+
+.page-header {
+  text-align: center;
+  margin-bottom: 20px;
+}
+.page-header h1 {
+  font-size: 20px;
+  font-weight: 700;
+  color: #0d1633;
+  letter-spacing: -0.02em;
+}
+.page-header p {
+  font-size: 13px;
+  color: #6070a0;
+  margin-top: 4px;
+}
+.badge {
+  display: inline-block;
+  background: #e8f0ff;
+  color: #1a3a8a;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 500;
+  padding: 3px 12px;
+  margin-top: 8px;
+  border: 1px solid #b8ccf0;
+}
+
+.sim-card {
+  width: 100%;
+  max-width: 720px;
+  background: #fff;
+  border-radius: 18px;
+  box-shadow: 0 4px 40px rgba(0,0,30,0.10), 0 1px 4px rgba(0,0,0,0.06);
+  overflow: hidden;
+}
+
+.sim-wrapper {
+  font-family: 'Noto Sans KR', sans-serif;
+  background: #0a0c10;
+  color: #e8eaf0;
+  position: relative;
+  overflow: hidden;
+}
+
+.car-interior {
+  position: relative;
+  width: 100%;
+  height: 520px;
+  background: linear-gradient(180deg, #0d1117 0%, #141820 40%, #1a1f2e 100%);
+  overflow: hidden;
+}
+
+.windshield {
+  position: absolute;
+  top: 0;
+  left: 55px;
+  right: 55px;
+  height: 240px;
+  background: linear-gradient(170deg, #b8d4f5 0%, #d6e8fb 20%, #f0f6ff 40%, #fdf6e0 65%, #f5e4b0 80%, transparent 100%);
+  clip-path: polygon(5% 0%, 95% 0%, 100% 100%, 0% 100%);
+  opacity: 0.18;
+}
+
+.sun-glare {
+  position: absolute;
+  top: -10px;
+  left: 60%;
+  width: 180px;
+  height: 160px;
+  background: radial-gradient(ellipse, rgba(255,240,180,0.5) 0%, rgba(255,220,100,0.15) 40%, transparent 70%);
+  pointer-events: none;
+  transition: opacity 0.5s;
+}
+
+.pillar-left {
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 55px;
+  background: linear-gradient(90deg, #0c0e14 60%, transparent);
+}
+.pillar-right {
+  position: absolute;
+  right: 0; top: 0; bottom: 0;
+  width: 55px;
+  background: linear-gradient(270deg, #0c0e14 60%, transparent);
+}
+
+.rearview {
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 90px;
+  height: 22px;
+  background: linear-gradient(180deg, #1a2030 0%, #252a3a 100%);
+  border-radius: 4px;
+  border: 1px solid #3a4060;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 9px;
+  color: #6070a0;
+  letter-spacing: 0.08em;
+}
+
+.cluster-wrap {
+  position: absolute;
+  top: 165px;
+  left: 58px;
+  width: 155px;
+  z-index: 8;
+}
+.cluster-bezel {
+  background: #0c0e16;
+  border-radius: 8px;
+  padding: 3px;
+  border: 1px solid #1e2236;
+  box-shadow: 0 6px 24px rgba(0,0,0,0.9);
+}
+.cluster-screen {
+  border-radius: 6px;
+  height: 72px;
+  background: #050810;
+  overflow: hidden;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  padding: 6px 8px;
+}
+.gauge-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+.gauge-label {
+  font-size: 7px;
+  color: #606880;
+  font-family: 'Share Tech Mono', monospace;
+  letter-spacing: 0.06em;
+}
+.gauge-val {
+  font-size: 18px;
+  font-family: 'Share Tech Mono', monospace;
+  font-weight: 700;
+  color: #e8f0ff;
+  line-height: 1;
+}
+.gauge-unit {
+  font-size: 7px;
+  color: #4a90e2;
+  font-family: 'Share Tech Mono', monospace;
+}
+.gauge-divider {
+  width: 1px;
+  height: 40px;
+  background: #1e2540;
+}
+.rpm-bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 28px;
+}
+.rpm-bar {
+  width: 5px;
+  border-radius: 2px 2px 0 0;
+}
+.cluster-glare {
+  position: absolute;
+  inset: 0;
+  border-radius: 6px;
+  pointer-events: none;
+  transition: background 0.6s;
+  z-index: 3;
+}
+
+.center-display-wrap {
+  position: absolute;
+  top: 130px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 240px;
+  z-index: 10;
+}
+.display-bezel {
+  background: #0e1018;
+  border-radius: 10px;
+  padding: 4px;
+  border: 2px solid #25293a;
+  box-shadow: 0 0 0 1px #1a1e2e, 0 12px 40px rgba(0,0,0,0.9), 0 0 20px rgba(0,0,0,0.5);
+}
+.display-screen {
+  border-radius: 7px;
+  width: 100%;
+  height: 148px;
+  overflow: hidden;
+  position: relative;
+}
+.screen-nav {
+  width: 100%;
+  height: 100%;
+  background: #1a2535;
+  position: relative;
+  overflow: hidden;
+}
+.nav-road {
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 45px;
+  height: 100%;
+  background: #2d3545;
+}
+.nav-road::after {
+  content: '';
+  position: absolute;
+  top: 0; bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 3px;
+  background: repeating-linear-gradient(180deg, #f5c842 0px, #f5c842 14px, transparent 14px, transparent 28px);
+}
+.nav-block {
+  position: absolute;
+  background: #243040;
+  border: 1px solid #2e3c50;
+  border-radius: 2px;
+}
+.nav-overlay {
+  position: absolute;
+  inset: 0;
+  background: transparent;
+  transition: background 0.6s;
+}
+.screen-haze-overlay {
+  position: absolute;
+  inset: 0;
+  border-radius: 7px;
+  pointer-events: none;
+  transition: all 0.6s;
+  z-index: 4;
+  opacity: 0;
+}
+.film-layer {
+  position: absolute;
+  inset: 0;
+  border-radius: 7px;
+  pointer-events: none;
+  z-index: 6;
+  opacity: 0;
+  transition: opacity 0.5s;
+  overflow: hidden;
+}
+.film-lines {
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    -45deg,
+    rgba(100,200,255,0.0) 0px, rgba(100,200,255,0.0) 6px,
+    rgba(100,200,255,0.04) 6px, rgba(100,200,255,0.04) 7px
+  );
+}
+.film-label {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  background: rgba(0,180,255,0.15);
+  border: 1px solid rgba(0,180,255,0.4);
+  border-radius: 4px;
+  font-size: 8px;
+  color: #4cf;
+  padding: 2px 5px;
+  font-family: 'Share Tech Mono', monospace;
+  opacity: 0;
+  transition: opacity 0.5s;
+}
+.screen-glare-overlay {
+  position: absolute;
+  inset: 0;
+  background: transparent;
+  border-radius: 7px;
+  pointer-events: none;
+  transition: background 0.6s;
+  z-index: 5;
+}
+.nav-info-bar {
+  position: absolute;
+  bottom: 0; left: 0; right: 0;
+  height: 28px;
+  background: rgba(10,14,22,0.9);
+  display: flex;
+  align-items: center;
+  padding: 0 8px;
+  gap: 8px;
+  font-size: 9px;
+  font-family: 'Share Tech Mono', monospace;
+  color: #8af;
+  border-top: 1px solid #2a3a50;
+}
+.nav-dest {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 8px;
+  color: #5af0b0;
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dashboard {
+  position: absolute;
+  bottom: 0; left: 0; right: 0;
+  height: 300px;
+}
+.dash-surface {
+  position: absolute;
+  bottom: 0; left: -5%; right: -5%;
+  height: 220px;
+  background: linear-gradient(160deg, #1c2030 0%, #242836 30%, #1a1e28 60%, #151820 100%);
+  border-radius: 60% 60% 0 0 / 30% 30% 0 0;
+  border-top: 1px solid #2e3348;
+  box-shadow: 0 -8px 40px rgba(0,0,0,0.8);
+}
+.dash-trim {
+  position: absolute;
+  bottom: 170px; left: -5%; right: -5%;
+  height: 3px;
+  background: linear-gradient(90deg, transparent 5%, #3a4060 20%, #5a6080 50%, #3a4060 80%, transparent 95%);
+}
+.steering-col {
+  position: absolute;
+  bottom: 0; left: 50%;
+  transform: translateX(-50%);
+  width: 80px; height: 80px;
+  background: radial-gradient(ellipse, #252a38 60%, #1a1e28 100%);
+  border-radius: 50% 50% 0 0;
+  border: 1px solid #2e3348;
+  border-bottom: none;
+}
+.steering-wheel {
+  position: absolute;
+  bottom: 60px; left: 50%;
+  transform: translateX(-50%);
+  width: 110px; height: 110px;
+}
+.sw-ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 10px solid #2a2e40;
+  background: transparent;
+}
+.sw-spoke {
+  position: absolute;
+  top: 50%; left: 50%;
+  width: 3px; height: 35px;
+  background: #2a2e40;
+  transform-origin: top center;
+  margin-left: -1.5px; margin-top: -2px;
+}
+.sw-hub {
+  position: absolute;
+  top: 50%; left: 50%;
+  transform: translate(-50%,-50%);
+  width: 22px; height: 22px;
+  border-radius: 50%;
+  background: #20243a;
+  border: 1px solid #3a3e58;
+}
+
+.ray-vis {
+  position: absolute;
+  top: 60px; right: 58px;
+  width: 100px; height: 160px;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.5s;
+  z-index: 20;
+}
+.ray-vis svg { width: 100%; height: 100%; }
+
+/* Controls panel */
+.controls-panel {
+  background: #f8f9fc;
+  border-top: 1px solid #e4e8f0;
+  padding: 16px 20px 16px;
+}
+.ctrl-title {
+  font-size: 11px;
+  font-weight: 600;
+  color: #6070a0;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  margin-bottom: 12px;
+}
+.ctrl-row {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+.ctrl-group { flex: 1; min-width: 130px; }
+.ctrl-label {
+  font-size: 12px;
+  color: #6070a0;
+  margin-bottom: 5px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.ctrl-label span {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 12px;
+  color: #1a1a2e;
+  font-weight: 600;
+}
+
+input[type=range] {
+  width: 100%;
+  height: 4px;
+  border-radius: 2px;
+  -webkit-appearance: none;
+  background: #dde2f0;
+  outline: none;
+  cursor: pointer;
+}
+input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 16px; height: 16px;
+  border-radius: 50%;
+  background: #2a5aaa;
+  border: 2px solid #fff;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.2);
+  cursor: pointer;
+}
+
+.mode-btns { display: flex; gap: 6px; flex-wrap: wrap; }
+.mode-btn {
+  flex: 1;
+  min-width: 0;
+  padding: 6px 10px;
+  font-size: 11px;
+  font-family: 'Noto Sans KR', sans-serif;
+  border-radius: 6px;
+  border: 1px solid #d0d8f0;
+  background: #fff;
+  color: #6070a0;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+  font-weight: 400;
+}
+.mode-btn:hover { background: #eef2ff; }
+.mode-btn.active {
+  background: #1a3a6e;
+  color: #8ac4ff;
+  border-color: #2a5aaa;
+  font-weight: 600;
+}
+
+.metrics-row {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+  flex-wrap: wrap;
+}
+.metric-card {
+  flex: 1;
+  min-width: 70px;
+  background: #fff;
+  border: 1px solid #e4e8f0;
+  border-radius: 8px;
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.metric-card.highlight {
+  border-color: rgba(42,100,200,0.3);
+  background: rgba(42,100,200,0.04);
+}
+.m-label {
+  font-size: 9px;
+  color: #8090b0;
+  font-family: 'Noto Sans KR', sans-serif;
+}
+.m-val {
+  font-size: 16px;
+  font-family: 'Share Tech Mono', monospace;
+  font-weight: 700;
+  color: #1a1a2e;
+  line-height: 1.1;
+}
+.m-val.good { color: #1a7a40; }
+.m-val.warn { color: #b06010; }
+.m-val.bad  { color: #c02020; }
+.m-sub {
+  font-size: 8px;
+  color: #a0b0c8;
+  font-family: 'Noto Sans KR', sans-serif;
+}
+
+/* Theory section */
+.theory-section {
+  background: #fff;
+  border-top: 1px solid #e4e8f0;
+  padding: 20px 20px 24px;
+}
+.theory-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: #0d1633;
+  margin-bottom: 14px;
+  letter-spacing: -0.01em;
+}
+.theory-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+@media (max-width: 500px) {
+  .theory-grid { grid-template-columns: 1fr; }
+}
+.theory-card {
+  background: #f4f6fb;
+  border-radius: 10px;
+  padding: 12px 12px 10px;
+  border: 1px solid #e0e6f4;
+}
+.theory-card-title {
+  font-size: 11px;
+  font-weight: 700;
+  color: #1a3a8a;
+  margin-bottom: 6px;
+}
+.theory-card p {
+  font-size: 10.5px;
+  color: #4a5a80;
+  line-height: 1.65;
+}
+.theory-card.active-card {
+  background: #e8f0ff;
+  border-color: #b0c8f4;
+}
+.theory-card.active-card .theory-card-title {
+  color: #0a2060;
+}
+
+.footer-note {
+  text-align: center;
+  font-size: 10px;
+  color: #a0b0c8;
+  padding: 10px 0 4px;
+  border-top: 1px solid #e8ecf4;
+  margin-top: 16px;
+}
+</style>
+</head>
+<body>
+
+<div class="page-header">
+  <h1>자동차 디스플레이 광효율 향상</h1>
+  <p>단방향 무광 패널 기술 시뮬레이션</p>
+  <span class="badge">조별 발표 자료 — 아이디어 시각화</span>
+</div>
+
+<div class="sim-card">
+  <div class="sim-wrapper">
+    <div class="car-interior" id="carInterior">
+
+      <div class="windshield"></div>
+      <div class="sun-glare" id="sunGlare"></div>
+      <div class="pillar-left"></div>
+      <div class="pillar-right"></div>
+      <div class="rearview">· · · ·</div>
+
+      <!-- Instrument cluster -->
+      <div class="cluster-wrap">
+        <div class="cluster-bezel">
+          <div class="cluster-screen">
+            <div class="gauge-wrap">
+              <div class="gauge-label">KM/H</div>
+              <div class="gauge-val">78</div>
+              <div class="rpm-bars">
+                <div class="rpm-bar" style="height:8px;background:#2a5a9a"></div>
+                <div class="rpm-bar" style="height:14px;background:#2a6aaa"></div>
+                <div class="rpm-bar" style="height:20px;background:#3a80c8"></div>
+                <div class="rpm-bar" style="height:26px;background:#4a90e2"></div>
+                <div class="rpm-bar" style="height:18px;background:#3a80c8"></div>
+              </div>
+              <div class="gauge-unit">SPEED</div>
+            </div>
+            <div class="gauge-divider"></div>
+            <div class="gauge-wrap">
+              <div class="gauge-label">TEMP</div>
+              <div class="gauge-val" style="font-size:14px;color:#50c050">92°C</div>
+              <div style="font-size:7px;color:#508050;font-family:'Share Tech Mono',monospace;margin-top:2px">NORMAL</div>
+            </div>
+            <div class="gauge-divider"></div>
+            <div class="gauge-wrap">
+              <div class="gauge-label">RANGE</div>
+              <div class="gauge-val" style="font-size:14px">312</div>
+              <div class="gauge-unit">KM</div>
+            </div>
+            <div class="cluster-glare" id="clusterGlare"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Center display -->
+      <div class="center-display-wrap">
+        <div class="display-bezel">
+          <div class="display-screen">
+            <div class="screen-nav">
+              <div class="nav-block" style="width:60px;height:35px;top:15px;left:10px"></div>
+              <div class="nav-block" style="width:45px;height:25px;top:55px;left:5px"></div>
+              <div class="nav-block" style="width:55px;height:40px;top:20px;right:8px"></div>
+              <div class="nav-block" style="width:38px;height:22px;top:70px;right:12px"></div>
+              <div class="nav-block" style="width:50px;height:18px;top:95px;left:8px"></div>
+              <div class="nav-road"></div>
+              <div style="position:absolute;left:50%;transform:translateX(-50%);width:45px;top:0;bottom:28px;background:rgba(80,160,255,0.1);pointer-events:none"></div>
+              <div style="position:absolute;bottom:36px;left:50%;transform:translateX(-50%);width:0;height:0;border-left:6px solid transparent;border-right:6px solid transparent;border-bottom:10px solid #4af0a0"></div>
+              <div class="nav-overlay" id="navOverlay"></div>
+              <div class="screen-haze-overlay" id="hazeOverlay"></div>
+              <div class="film-layer" id="filmLayer"><div class="film-lines"></div></div>
+              <div class="screen-glare-overlay" id="screenGlare"></div>
+              <div class="nav-info-bar">
+                <div class="nav-dest">▶ 서울시청 · 2.4km</div>
+                <div style="color:#a0b8d8;white-space:nowrap">11:42</div>
+              </div>
+            </div>
+            <div class="film-label" id="filmLabel">단방향 무광 필름 적용</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Light ray visualization -->
+      <div class="ray-vis" id="rayVis">
+        <svg viewBox="0 0 100 160" xmlns="http://www.w3.org/2000/svg" fill="none">
+          <defs>
+            <marker id="arr" markerWidth="5" markerHeight="5" refX="4" refY="2.5" orient="auto">
+              <polygon points="0 0, 5 2.5, 0 5" fill="rgba(100,200,255,0.7)"/>
+            </marker>
+            <marker id="arr2" markerWidth="5" markerHeight="5" refX="4" refY="2.5" orient="auto">
+              <polygon points="0 0, 5 2.5, 0 5" fill="rgba(255,200,80,0.7)"/>
+            </marker>
+          </defs>
+          <line id="ray1" x1="85" y1="0" x2="70" y2="60" stroke="rgba(255,220,100,0.6)" stroke-width="1.5" marker-end="url(#arr2)"/>
+          <line id="ray2" x1="95" y1="10" x2="78" y2="65" stroke="rgba(255,200,80,0.4)" stroke-width="1" marker-end="url(#arr2)"/>
+          <line x1="50" y1="62" x2="100" y2="62" stroke="rgba(100,180,255,0.5)" stroke-width="1.5" stroke-dasharray="3,2"/>
+          <text x="52" y="59" font-size="7" fill="rgba(100,180,255,0.8)" font-family="monospace">필름층</text>
+          <line id="diffRay1" x1="70" y1="62" x2="50" y2="30" stroke="rgba(255,180,80,0.3)" stroke-width="1" marker-end="url(#arr2)" stroke-dasharray="2,2"/>
+          <line id="diffRay2" x1="72" y1="62" x2="82" y2="25" stroke="rgba(255,180,80,0.3)" stroke-width="1" marker-end="url(#arr2)" stroke-dasharray="2,2"/>
+          <line id="uniRay" x1="72" y1="62" x2="68" y2="20" stroke="rgba(100,220,255,0.8)" stroke-width="1.8" marker-end="url(#arr)" opacity="0"/>
+          <line id="screenRay" x1="72" y1="62" x2="75" y2="110" stroke="rgba(100,220,255,0.8)" stroke-width="1.5" marker-end="url(#arr)" opacity="0"/>
+          <text id="rayLabel" x="2" y="130" font-size="6.5" fill="rgba(255,180,80,0.7)" font-family="monospace">기존: 난반사 → 헤이즈</text>
+          <text id="uniLabel" x="2" y="142" font-size="6.5" fill="rgba(100,220,255,0.0)" font-family="monospace">단방향: 선택 투과</text>
+        </svg>
+      </div>
+
+      <!-- Dashboard -->
+      <div class="dashboard">
+        <div class="dash-surface"></div>
+        <div class="dash-trim"></div>
+        <div class="steering-col"></div>
+        <div class="steering-wheel">
+          <div class="sw-ring"></div>
+          <div class="sw-spoke" style="transform: rotate(-30deg) translateX(-50%)"></div>
+          <div class="sw-spoke" style="transform: rotate(30deg) translateX(-50%)"></div>
+          <div class="sw-spoke" style="transform: rotate(90deg) translateX(-50%) translateY(-38px)"></div>
+          <div class="sw-hub"></div>
+        </div>
+      </div>
+
+    </div><!-- end car-interior -->
+
+    <!-- Controls -->
+    <div class="controls-panel">
+      <div class="ctrl-title">시뮬레이션 제어</div>
+      <div class="ctrl-row">
+        <div class="ctrl-group">
+          <div class="ctrl-label">햇빛 강도 <span id="sunLabel">70%</span></div>
+          <input type="range" min="0" max="100" value="70" id="sunSlider">
+        </div>
+        <div class="ctrl-group">
+          <div class="ctrl-label">화면 밝기 <span id="briLabel">80%</span></div>
+          <input type="range" min="20" max="100" value="80" id="briSlider">
+        </div>
+      </div>
+      <div class="ctrl-row">
+        <div class="ctrl-group">
+          <div class="ctrl-label" style="margin-bottom:6px">디스플레이 모드</div>
+          <div class="mode-btns">
+            <button class="mode-btn" id="btnNone" onclick="setMode('none')">무처리</button>
+            <button class="mode-btn" id="btnConv" onclick="setMode('conv')">기존 무광</button>
+            <button class="mode-btn active" id="btnUni" onclick="setMode('uni')">단방향 무광</button>
+          </div>
+        </div>
+      </div>
+      <div class="metrics-row">
+        <div class="metric-card">
+          <div class="m-label">시인성 지수</div>
+          <div class="m-val" id="mvVis">94</div>
+          <div class="m-sub">/ 100</div>
+        </div>
+        <div class="metric-card">
+          <div class="m-label">광효율</div>
+          <div class="m-val" id="mvEff">91%</div>
+          <div class="m-sub">광손실 최소화</div>
+        </div>
+        <div class="metric-card">
+          <div class="m-label">헤이즈 현상</div>
+          <div class="m-val" id="mvHaze">없음</div>
+          <div class="m-sub" id="msubHaze">선명도 유지</div>
+        </div>
+        <div class="metric-card highlight">
+          <div class="m-label">소비전력</div>
+          <div class="m-val" id="mvPwr">-18%</div>
+          <div class="m-sub">기준 대비</div>
+        </div>
+      </div>
+    </div>
+  </div><!-- end sim-wrapper -->
+
+  <!-- Theory section -->
+  <div class="theory-section">
+    <div class="theory-title">기술 원리 비교</div>
+    <div class="theory-grid">
+      <div class="theory-card">
+        <div class="theory-card-title">기존 무광 처리</div>
+        <p>화면 표면을 거칠게 깎아 햇빛을 사방으로 흩뿌림. 반사는 줄지만 화면 빛도 함께 흩어져 <b>헤이즈(흐릿함)</b>가 생기고, 이를 보완하기 위해 밝기를 올려 전력이 낭비됨.</p>
+      </div>
+      <div class="theory-card active-card">
+        <div class="theory-card-title">단방향 무광 패널 ★</div>
+        <p>들어오는 햇빛 각도 ≠ 나가는 화면 빛 각도 차이를 활용해 <b>한쪽 방향으로만</b> 빛을 제어하는 필름 층을 결합. 헤이즈 없이 선명도 유지, 소비전력 절감.</p>
+      </div>
+      <div class="theory-card">
+        <div class="theory-card-title">효과 요약</div>
+        <p>밝기를 강제로 올리지 않아도 시인성이 확보됨. 광효율 상승 → 발열 감소 → 수명 연장. 기존 무광 대비 소비전력 약 <b>15~20% 절감</b> 기대.</p>
+      </div>
+    </div>
+    <div class="footer-note">슬라이더를 조작해 햇빛 강도와 밝기를 바꿔보세요 — 모드별 차이가 실시간으로 반영됩니다.</div>
+  </div>
+
+</div><!-- end sim-card -->
+
+<script>
+let currentMode = 'uni';
+let sunVal = 70;
+let briVal = 80;
+
+const modes = {
+  none: {
+    vis: (s,b) => Math.max(10, Math.round(b*0.6 - s*0.55)),
+    eff: (s,b) => Math.round(b*0.65),
+    haze: 'N/A', hazeClass: '', hazeSub: '처리 없음',
+    pwr: '+0%', pwrClass: '',
+    glareAlpha: (s) => s*0.006, hazeAlpha: () => 0, filmOpacity: 0,
+  },
+  conv: {
+    vis: (s,b) => Math.max(20, Math.round(b*0.65 - s*0.25 + 10)),
+    eff: (s,b) => Math.round(b*0.72 - s*0.08),
+    haze: (s) => s>50?'심함':s>25?'보통':'약함',
+    hazeClass: (s) => s>50?'bad':s>25?'warn':'good',
+    hazeSub: '밝기 보상 필요', pwr: '+12%', pwrClass: 'warn',
+    glareAlpha: (s) => s*0.0018, hazeAlpha: (s) => s*0.0028, filmOpacity: 0,
+  },
+  uni: {
+    vis: (s,b) => Math.min(100, Math.round(b*0.95 - s*0.04 + 5)),
+    eff: (s,b) => Math.min(98, Math.round(b*0.93 + 3)),
+    haze: '없음', hazeClass: 'good', hazeSub: '선명도 유지',
+    pwr: '-18%', pwrClass: 'good',
+    glareAlpha: (s) => s*0.0004, hazeAlpha: () => 0, filmOpacity: 1,
+  }
+};
+
+function setMode(m) {
+  currentMode = m;
+  document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+  const key = 'btn' + m.charAt(0).toUpperCase() + m.slice(1);
+  document.getElementById(key).classList.add('active');
+  updateSim();
+}
+
+function updateSim() {
+  const mode = modes[currentMode];
+  const s = sunVal, b = briVal;
+  const glareAlpha = mode.glareAlpha(s);
+  const hazeAlpha = mode.hazeAlpha ? mode.hazeAlpha(s) : 0;
+
+  document.getElementById('screenGlare').style.background =
+    glareAlpha > 0
+      ? `linear-gradient(135deg, rgba(255,240,200,${glareAlpha.toFixed(3)}) 0%, rgba(255,255,255,${(glareAlpha*0.6).toFixed(3)}) 50%, transparent 80%)`
+      : 'transparent';
+
+  document.getElementById('hazeOverlay').style.opacity = hazeAlpha.toFixed(3);
+  document.getElementById('hazeOverlay').style.background = `rgba(200,210,220,${hazeAlpha.toFixed(3)})`;
+  document.getElementById('clusterGlare').style.background =
+    glareAlpha > 0 ? `rgba(255,240,200,${(glareAlpha*0.5).toFixed(3)})` : 'transparent';
+  document.getElementById('sunGlare').style.opacity = (s/100*0.9+0.05).toFixed(2);
+  document.getElementById('filmLayer').style.opacity = mode.filmOpacity;
+  document.getElementById('filmLabel').style.opacity = mode.filmOpacity;
+
+  const rayVis = document.getElementById('rayVis');
+  rayVis.style.opacity = s>20 ? '1' : '0';
+
+  const diffOp = currentMode!=='uni' ? (s*0.006).toFixed(2) : '0';
+  const uniOp = currentMode==='uni' ? '1' : '0';
+  const d1=rayVis.querySelector('#diffRay1'), d2=rayVis.querySelector('#diffRay2');
+  const u=rayVis.querySelector('#uniRay'), sr=rayVis.querySelector('#screenRay');
+  const rl=rayVis.querySelector('#rayLabel'), ul=rayVis.querySelector('#uniLabel');
+  if(d1){d1.style.opacity=diffOp; d2.style.opacity=diffOp;}
+  if(u){u.style.opacity=uniOp;}
+  if(sr){sr.style.opacity=uniOp;}
+  if(rl){rl.setAttribute('fill',`rgba(255,180,80,${currentMode!=='uni'?'0.75':'0.2'})`);}
+  if(ul){ul.setAttribute('fill',`rgba(100,220,255,${currentMode==='uni'?'0.85':'0'})`);}
+
+  const vis = mode.vis(s,b);
+  const eff = mode.eff(s,b);
+  const haze = typeof mode.haze==='function' ? mode.haze(s) : mode.haze;
+  const hazeClass = typeof mode.hazeClass==='function' ? mode.hazeClass(s) : mode.hazeClass;
+
+  const mvVis=document.getElementById('mvVis');
+  mvVis.textContent=Math.max(0,Math.min(100,vis));
+  mvVis.className='m-val '+(vis>=80?'good':vis>=50?'warn':'bad');
+
+  const mvEff=document.getElementById('mvEff');
+  mvEff.textContent=Math.max(0,Math.min(100,eff))+'%';
+  mvEff.className='m-val '+(eff>=80?'good':eff>=55?'warn':'bad');
+
+  const mvHaze=document.getElementById('mvHaze');
+  mvHaze.textContent=haze;
+  mvHaze.className='m-val '+hazeClass;
+  document.getElementById('msubHaze').textContent=mode.hazeSub;
+
+  const mvPwr=document.getElementById('mvPwr');
+  mvPwr.textContent=mode.pwr;
+  mvPwr.className='m-val '+(mode.pwrClass||'');
+
+  const bri=b/100;
+  document.getElementById('navOverlay').style.background=
+    `rgba(10,14,22,${Math.max(0,0.5-bri*0.5).toFixed(2)})`;
+}
+
+document.getElementById('sunSlider').addEventListener('input', function(){
+  sunVal=+this.value;
+  document.getElementById('sunLabel').textContent=sunVal+'%';
+  updateSim();
+});
+document.getElementById('briSlider').addEventListener('input', function(){
+  briVal=+this.value;
+  document.getElementById('briLabel').textContent=briVal+'%';
+  updateSim();
+});
+
+updateSim();
+</script>
+</body>
+</html>
